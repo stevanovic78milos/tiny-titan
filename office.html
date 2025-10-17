@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ServiceLite – Office</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{--accent:#0066cc;--light:#f5f7fa;--text:#222;font-family:system-ui,sans-serif}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--light);color:var(--text)}
+    header{display:flex;gap:1rem;align-items:center;padding:.75rem 1rem;background:var(--accent);color:#fff}
+    h1{font-size:1.25rem}
+    .btn{background:#fff;color:var(--accent);border:none;padding:.4rem .8rem;border-radius:4px;font-weight:600;cursor:pointer}
+    main{display:grid;grid-template-columns:320px 1fr;gap:1rem;padding:1rem;height:calc(100vh - 60px)}
+    nav{background:#fff;padding:1rem;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+    nav h2{font-size:1rem;margin-bottom:.5rem}
+    nav ul{list-style:none;display:grid;gap:.5rem}
+    nav li button{width:100%;text-align:left}
+    section{background:#fff;padding:1rem;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.15);overflow:auto}
+    .hidden{display:none}
+    label{display:block;margin-top:.75rem;font-weight:600}
+    input,textarea,select{width:100%;padding:.5rem;margin-top:.25rem;border:1px solid #bbb;border-radius:4px}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    table{width:100%;border-collapse:collapse;margin-top:.5rem}
+    th,td{padding:.4rem .5rem;text-align:left;border-bottom:1px solid #ddd}
+    th{background:#f0f0f0}
+    .cal-day{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:.5rem}
+    .cal-cell{background:#fff;border:1px solid #ddd;padding:.4rem .2rem;font-size:.75rem;cursor:pointer;min-height:60px}
+    .cal-cell:hover{background:#e6f0ff}
+    .cal-cell .num{font-weight:700;margin-bottom:.2rem}
+    .appt{background:var(--accent);color:#fff;padding:.15rem .25rem;border-radius:3px;margin-top:.2rem;font-size:.65rem}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ServiceLite Office</h1>
+    <button id="syncToTech" class="btn">Sync to Tech-App</button>
+  </header>
+
+  <main>
+    <nav>
+      <h2>Menu</h2>
+      <ul>
+        <li><button class="navBtn" data-pane="calendar">Calendar</button></li>
+        <li><button class="navBtn" data-pane="customers">Customers</button></li>
+        <li><button class="navBtn" data-pane="jobs">All Jobs</button></li>
+        <li><button class="navBtn" data-pane="newJob">+ New Job</button></li>
+      </ul>
+    </nav>
+
+    <!-- 1. CALENDAR -->
+    <section id="calendar" class="pane">
+      <h2>Schedule</h2>
+      <div class="grid-2" style="margin-bottom:.5rem">
+        <button id="prevMon">‹ Prev</button>
+        <button id="nextMon">Next ›</button>
+      </div>
+      <div class="cal-day" id="calHeader"></div>
+      <div class="cal-day" id="calBody"></div>
+    </section>
+
+    <!-- 2. CUSTOMERS -->
+    <section id="customers" class="pane hidden">
+      <h2>Customers</h2>
+      <button id="addCustBtn" class="btn">+ Add Customer</button>
+      <table id="custTable">
+        <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Address</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- 3. ALL JOBS -->
+    <section id="jobs" class="pane hidden">
+      <h2>Jobs</h2>
+      <table id="jobTable">
+        <thead><tr><th>ID</th><th>Customer</th><th>Date</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- 4. NEW / EDIT JOB -->
+    <section id="newJob" class="pane hidden">
+      <h2>Create / Edit Job</h2>
+      <form id="jobForm">
+        <label>Customer
+          <select id="selCustomer" required></select>
+        </label>
+        <div class="grid-2">
+          <label>Date
+            <input type="date" id="jobDate" required>
+          </label>
+          <label>Time
+            <input type="time" id="jobTime" required>
+          </label>
+        </div>
+        <label>Description
+          <textarea id="jobDesc" required></textarea>
+        </label>
+        <label>Checklist (one per line)
+          <textarea id="jobCheck" placeholder="Replace filter&#10;Check thermostat"></textarea>
+        </label>
+        <button type="submit" class="btn">Save Job</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+/* ============  DATA LAYER  ============ */
+    let customers = JSON.parse(localStorage.getItem('sl_customers')) || [
+      {id:1,name:'Oakwood Villas',phone:'555-0100',email:'info@oakwood.com',address:'42 Maple St'},
+      {id:2,name:'Mike\'s Café',phone:'555-0200',email:'mike@mikes.com',address:'12 Main Road'}
+    ];
+    let appointments = JSON.parse(localStorage.getItem('sl_appointments')) || [];
+    let techJobs     = JSON.parse(localStorage.getItem('jobs')) || [];
+
+    function saveAll(){
+      localStorage.setItem('sl_customers',JSON.stringify(customers));
+      localStorage.setItem('sl_appointments',JSON.stringify(appointments));
+      localStorage.setItem('jobs',JSON.stringify(techJobs));
+    }
+    function uuid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+
+/* ============  NAV  ============ */
+    document.querySelectorAll('.navBtn').forEach(b=>{
+      b.onclick=()=> showPane(b.dataset.pane);
+    });
+    function showPane(id){
+      document.querySelectorAll('.pane').forEach(p=>p.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      if(id==='customers') renderCustomers();
+      if(id==='jobs') renderJobs();
+      if(id==='newJob') populateCustomerSelect();
+    }
+
+/* ============  CUSTOMERS  ============ */
+    function renderCustomers(){
+      const tb = document.querySelector('#custTable tbody');
+      tb.innerHTML='';
+      customers.forEach(c=>{
+        tb.insertAdjacentHTML('beforeend',`<tr>
+          <td>${c.name}</td><td>${c.phone}</td><td>${c.email}</td><td>${c.address}</td>
+        </tr>`);
+      });
+    }
+    document.getElementById('addCustBtn').onclick=()=>{
+      const name = prompt('Customer name');
+      if(!name)return;
+      customers.push({id:uuid(),name,phone:prompt('Phone')||'',email:prompt('Email')||'',address:prompt('Address')||''});
+      saveAll(); renderCustomers();
+    };
+
+/* ============  JOBS  ============ */
+    function renderJobs(){
+      const tb = document.querySelector('#jobTable tbody');
+      tb.innerHTML='';
+      appointments.forEach(a=>{
+        tb.insertAdjacentHTML('beforeend',`<tr>
+          <td>${a.id}</td><td>${a.customer}</td><td>${a.date} ${a.time}</td><td>${a.status}</td>
+        </tr>`);
+      });
+    }
+
+/* ============  NEW JOB  ============ */
+    function populateCustomerSelect(){
+      const sel = document.getElementById('selCustomer');
+      sel.innerHTML='';
+      customers.forEach(c=>{
+        sel.insertAdjacentHTML('beforeend',`<option value="${c.id}">${c.name}</option>`);
+      });
+    }
+    document.getElementById('jobForm').onsubmit=e=>{
+      e.preventDefault();
+      const custId = document.getElementById('selCustomer').value;
+      const cust   = customers.find(x=>x.id===custId);
+      const newId  = uuid();
+      const apt    = {
+        id: newId,
+        customer: cust.name,
+        customerId: custId,
+        date: document.getElementById('jobDate').value,
+        time: document.getElementById('jobTime').value,
+        description: document.getElementById('jobDesc').value,
+        checklist: document.getElementById('jobCheck').value.split('\n').filter(Boolean),
+        status:'pending'
+      };
+      appointments.push(apt);
+      // istovremeno kreiraj radni nalog za servisera
+      techJobs.push({
+        id: newId,
+        customer: cust.name,
+        address: cust.address,
+        description: apt.description,
+        checklist: apt.checklist.map(t=>({text:t,done:false})),
+        notes:'',
+        parts:'',
+        signature:null,
+        status:'pending'
+      });
+      saveAll();
+      e.target.reset();
+      alert('Job created & pushed to tech app');
+    };
+
+/* ============  CALENDAR  ============ */
+    let calDate = new Date();
+    function renderCalendar(){
+      const y = calDate.getFullYear(), m = calDate.getMonth();
+      const first = new Date(y,m,1).getDay(), daysInMon = new Date(y,m+1,0).getDate();
+      document.getElementById('calHeader').innerHTML='SunMonTueWedThuFriSat'.split('').map(d=>`<div>${d}</div>`).join('');
+      const body = document.getElementById('calBody');
+      body.innerHTML='';
+      // empty cells
+      for(let i=0;i<first;i++) body.insertAdjacentHTML('beforeend','<div></div>');
+      // days
+      for(let d=1;d<=daysInMon;d++){
+        const cell = document.createElement('div');
+        cell.className='cal-cell';
+        cell.innerHTML=`<div class="num">${d}</div>`;
+        const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        appointments.filter(a=>a.date===iso).forEach(a=>{
+          cell.insertAdjacentHTML('beforeend',`<div class="appt">${a.time} ${a.customer}</div>`);
+        });
+        cell.onclick = ()=>{ showPane('newJob'); document.getElementById('jobDate').value=iso; };
+        body.appendChild(cell);
+      }
+    }
+    document.getElementById('prevMon').onclick=()=>{calDate.setMonth(calDate.getMonth()-1); renderCalendar();};
+    document.getElementById('nextMon').onclick=()=>{calDate.setMonth(calDate.getMonth()+1); renderCalendar();};
+
+/* ============  SYNC to Tech-App  ============ */
+    document.getElementById('syncToTech').onclick=()=>{
+      saveAll();
+      alert('Jobs synced to tech app (shared localStorage key "jobs")');
+    };
+
+/* ============  INIT  ============ */
+    renderCalendar();
+    showPane('calendar');
+  </script>
+</body>
+</html>
