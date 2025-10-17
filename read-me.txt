@@ -1,0 +1,16 @@
+Kako se oba dela povezuju
+techJobs (office) i jobs (serviser) čitaju/išu isti localStorage ključ.
+Klikom „Sync to Tech-App“ u office-u samo pozivamo saveAll() → serviserova
+index.html odmah vidi nove naloge.
+Ako živiš u cloud-u, zamenite localStorage sa fetch('/api/...') pozivima – ostatak UI-a ostaje identičan.
+Šta dalje?
+Dodaj login (basic-auth ili Firebase).
+Umesto localStorage koristi IndexedDB + Background-Sync za pravi offline-first režim.
+Generiši PDF račun iz potpisanih naloga (jsPDF).
+Pošalji e-mail/SMS podsetnik klijentu (EmailJS / Twilio).
+Napravi jedinu bazu (SQLite/Postgres) i REST endpointe – office i mobilna app komuniciraju preko /jobs, /customers, /appointments.
+Sa ova dva fajla (index.html + office.html) imaš potpun, GPS-free ServiceTitan sistem:
+office → zakazuje, upravlja klijentima
+serviser → vidi svoje naloge, ček-liste, potpis, završava posao
+obe strane rade offline i sinhronizuju se kad imaš mreže
+Srećno sa poslom!
